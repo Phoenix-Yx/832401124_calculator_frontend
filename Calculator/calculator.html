@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>832401124_Calculator</title>
+    <style>
+        * { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+            display: flex;
+            justify-content: center;   
+            align-items: center;       
+            padding: 2rem 1rem;
+        }
+        .container {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;       
+            width: 100%;
+            max-width: 800px;
+        }
+        .main {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 1.8rem; border-radius: 2rem;
+            box-shadow: 0 25px 40px -12px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.06);
+            width: 360px;
+        }
+        .textview {
+            width: 100%; background: #0b1120; border: 1px solid #334155;
+            border-radius: 1.2rem; padding: 1rem 1.2rem;
+            font-size: 1.6rem; font-weight: 500; color: #e2e8f0;
+            text-align: right; outline: none; letter-spacing: 1px;
+            box-shadow: inset 0 4px 8px rgba(0,0,0,0.6);
+            margin-bottom: 0.3rem;
+        }
+        .result-line {
+            color: #60a5fa; font-size: 1rem; text-align: right;
+            height: 1.4rem; margin-bottom: 1rem; padding-right: 0.5rem;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .result-line.error { color: #f87171; }
+        table { border-collapse: separate; border-spacing: 0.5rem; margin: 0 -0.5rem; width: 100%; }
+        .button {
+            width: 100%; padding: 0.9rem 0.3rem;
+            font-size: 1.3rem; font-weight: 600; border: none;
+            border-radius: 1.4rem; background: #1e293b; color: #f1f5f9;
+            cursor: pointer; box-shadow: 0 6px 0 #0f172a;
+            transition: all 0.08s ease;
+        }
+        .button:hover { background: #2d3b4f; }
+        .button:active { transform: translateY(4px); box-shadow: 0 2px 0 #0f172a; }
+        .button.op { background: #1e2a3a; color: #93c5fd; }
+        .button[value="C"], .button[value="<"] { background: #334155; color: #facc15; }
+        .button.eq { background: #2563eb; color: white; box-shadow: 0 6px 0 #1e3a8a; }
+        .button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .history-panel {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 1.5rem; border-radius: 2rem;
+            box-shadow: 0 25px 40px -12px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.06);
+            width: 340px; max-height: 640px; display: flex; flex-direction: column;
+        }
+        .history-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 1rem; color: #e2e8f0;
+        }
+        .history-header h2 { font-size: 1.1rem; margin: 0; }
+        .btn-clear {
+            background: transparent; border: 1px solid #475569; color: #94a3b8;
+            border-radius: 0.6rem; padding: 0.3rem 0.7rem; font-size: 0.8rem;
+            cursor: pointer; transition: 0.15s;
+        }
+        .btn-clear:hover { background: #334155; color: #f87171; border-color: #f87171; }
+        .history-list { overflow-y: auto; flex: 1; padding-right: 0.3rem; }
+        .history-item {
+            background: #0b1120; border: 1px solid #1e293b;
+            border-radius: 0.9rem; padding: 0.7rem 0.9rem;
+            margin-bottom: 0.6rem; display: flex;
+            justify-content: space-between; align-items: center; gap: 0.5rem;
+            transition: 0.15s;
+        }
+        .history-item:hover { border-color: #3b82f6; }
+        .history-item .info { flex: 1; min-width: 0; }
+        .history-item .expr {
+            color: #cbd5e1; font-size: 0.95rem;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .history-item .meta {
+            color: #64748b; font-size: 0.75rem; margin-top: 0.15rem;
+        }
+        .history-item .meta .res { color: #60a5fa; font-weight: 600; }
+        .btn-del {
+            background: transparent; border: none; color: #64748b;
+            cursor: pointer; font-size: 1.1rem; padding: 0.2rem 0.4rem;
+            border-radius: 0.4rem; transition: 0.15s;
+        }
+        .btn-del:hover { color: #f87171; background: #1e293b; }
+        .empty-tip { color: #64748b; text-align: center; padding: 2rem 0; font-size: 0.9rem; }
+        .toast {
+            position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+            background: #1e293b; color: #f1f5f9; padding: 0.7rem 1.4rem;
+            border-radius: 1rem; border: 1px solid #334155; font-size: 0.9rem;
+            opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100;
+        }
+        .toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="main">
+        <input class="textview" id="display" readonly value="" placeholder="0">
+        <div class="result-line" id="resultLine"></div>
+        <table>
+            <tr>
+                <td><input type="button" class="button" value="C" onclick="clearAll()"></td>
+                <td><input type="button" class="button" value="<" onclick="backspace()"></td>
+                <td><input type="button" class="button op" value="×" onclick="appendOperator('*')"></td>
+                <td><input type="button" class="button op" value="÷" onclick="appendOperator('/')"></td>
+            </tr>
+            <tr>
+                <td><input type="button" class="button" value="7" onclick="appendDigit('7')"></td>
+                <td><input type="button" class="button" value="8" onclick="appendDigit('8')"></td>
+                <td><input type="button" class="button" value="9" onclick="appendDigit('9')"></td>
+                <td><input type="button" class="button op" value="-" onclick="appendOperator('-')"></td>
+            </tr>
+            <tr>
+                <td><input type="button" class="button" value="4" onclick="appendDigit('4')"></td>
+                <td><input type="button" class="button" value="5" onclick="appendDigit('5')"></td>
+                <td><input type="button" class="button" value="6" onclick="appendDigit('6')"></td>
+                <td><input type="button" class="button op" value="+" onclick="appendOperator('+')"></td>
+            </tr>
+            <tr>
+                <td><input type="button" class="button" value="1" onclick="appendDigit('1')"></td>
+                <td><input type="button" class="button" value="2" onclick="appendDigit('2')"></td>
+                <td><input type="button" class="button" value="3" onclick="appendDigit('3')"></td>
+                <td><input type="button" class="button" value="(" onclick="appendParen('(')"></td>
+            </tr>
+            <tr>
+                <td><input type="button" class="button" value="0" onclick="appendDigit('0')"></td>
+                <td><input type="button" class="button" value="." onclick="appendDot()"></td>
+                <td><input type="button" class="button" value=")" onclick="appendParen(')')"></td>
+                <td><input type="button" class="button eq" value="=" onclick="sendToBackend()"></td>
+            </tr>
+        </table>
+    </div>
+
+
+    <div class="history-panel">
+        <div class="history-header">
+            <h2>📜 计算历史</h2>
+            <button class="btn-clear" onclick="clearAllHistory()">清空</button>
+        </div>
+        <div class="history-list" id="historyList">
+            <div class="empty-tip">暂无记录</div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+
+    const API_BASE = 'http://localhost:8080';
+
+    const display = document.getElementById('display');
+    const resultLine = document.getElementById('resultLine');
+
+    function getExpr() { return display.value; }
+    function setExpr(s) { display.value = s; }
+
+    function clearAll() {
+        setExpr('');
+        resultLine.textContent = '';
+        resultLine.classList.remove('error');
+    }
+
+    function backspace() {
+        setExpr(getExpr().slice(0, -1));
+    }
+
+    function appendDigit(d) {
+        let e = getExpr();
+        if (e === '0' && d === '0') return;
+        setExpr(e + d);
+    }
+
+    function appendOperator(op) {
+        let e = getExpr();
+        if (e === '') {
+            if (op === '-') setExpr('-');
+            return;
+        }
+        const last = e.slice(-1);
+        if ('+-*/'.includes(last)) {
+            setExpr(e.slice(0, -1) + op);
+        } else {
+            setExpr(e + op);
+        }
+    }
+
+    function appendDot() {
+        let e = getExpr();
+        if (e === '') { setExpr('0.'); return; }
+        const last = e.slice(-1);
+        if ('+-*/('.includes(last)) { setExpr(e + '0.'); return; }
+        const parts = e.split(/[\+\-\*\/\(\)]/);
+        const lastPart = parts[parts.length - 1];
+        if (lastPart.includes('.')) return;
+        setExpr(e + '.');
+    }
+
+    function appendParen(p) {
+        setExpr(getExpr() + p);
+    }
+
+    let toastTimer = null;
+    function toast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+
+    async function sendToBackend() {
+        const expression = getExpr().trim();
+        if (!expression) { toast('请输入表达式'); return; }
+
+        resultLine.textContent = '计算中...';
+        resultLine.classList.remove('error');
+
+        try {
+            const resp = await fetch(`${API_BASE}/api/calculate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ expression: expression })
+            });
+
+            const data = await resp.json();
+
+            if (!resp.ok || data.success === false) {
+                resultLine.textContent = '⚠ ' + (data.message || '计算失败');
+                resultLine.classList.add('error');
+                return;
+            }
+
+            resultLine.textContent = '= ' + data.result;
+            resultLine.classList.remove('error');
+            loadHistory();
+
+        } catch (err) {
+            console.error(err);
+            resultLine.textContent = '⚠ 无法连接后端，请检查服务是否启动';
+            resultLine.classList.add('error');
+        }
+    }
+
+
+    async function loadHistory() {
+        const list = document.getElementById('historyList');
+        try {
+            const resp = await fetch(`${API_BASE}/api/history`);
+            const data = await resp.json();
+            renderHistory(data);
+        } catch (err) {
+            console.error(err);
+            list.innerHTML = '<div class="empty-tip">加载历史失败</div>';
+        }
+    }
+
+    function renderHistory(items) {
+        const list = document.getElementById('historyList');
+        if (!items || items.length === 0) {
+            list.innerHTML = '<div class="empty-tip">暂无记录</div>';
+            return;
+        }
+        list.innerHTML = items.map(it => `
+                <div class="history-item">
+                    <div class="info">
+                        <div class="expr">${escapeHtml(it.expression)}</div>
+                        <div class="meta">
+                            <span class="res">= ${it.result}</span>
+                            &nbsp;·&nbsp;${formatTime(it.createdAt)}
+                        </div>
+                    </div>
+                    <button class="btn-del" title="删除" onclick="deleteHistory(${it.id})">✕</button>
+                </div>
+            `).join('');
+    }
+
+
+    async function deleteHistory(id) {
+        try {
+            const resp = await fetch(`${API_BASE}/api/history/${id}`, { method: 'DELETE' });
+            if (resp.status === 204 || resp.ok) {
+                toast('已删除');
+                loadHistory();
+            } else {
+                toast('删除失败');
+            }
+        } catch (err) {
+            console.error(err);
+            toast('删除请求失败');
+        }
+    }
+
+    async function clearAllHistory() {
+        if (!confirm('确定清空全部历史吗？')) return;
+        try {
+            const resp = await fetch(`${API_BASE}/api/history`, { method: 'DELETE' });
+            if (resp.status === 204 || resp.ok) {
+                toast('已清空');
+                loadHistory();
+            } else {
+                toast('清空失败');
+            }
+        } catch (err) {
+            console.error(err);
+            toast('清空请求失败');
+        }
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({
+            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+        }[c]));
+    }
+    function formatTime(t) {
+        if (!t) return '';
+        const d = new Date(t);
+        const p = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        loadHistory();
+    });
+</script>
+</body>
+</html>
